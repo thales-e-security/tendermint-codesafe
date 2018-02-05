@@ -91,4 +91,6 @@ extern int toHexString(const unsigned char *data, int len, char **output);
 
 extern int allocSprintF(char **output, const char *fmt, ...);
 
+extern int Unmarshal64BitInt(NF_Unmarshal_Context *c, long long *msg);
+
 #endif /* UTILS_H_ */

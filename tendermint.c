@@ -26,13 +26,13 @@
 #include "utils.h"
 
 // Ugly macro definition, but easier than crafting a canonical JSON library
-#define VOTE_FMT "{\"chain_id\":\"%s\",\"vote\":{\"block_id\":{\"hash\":\"%s\",\"parts\":{\"hash\":\"%s\",\"total\":%d}},\"height\":%d,\"round\":%d,\"type\":%d}}"
-#define PROPOSAL_FMT "{\"chain_id\":\"%s\",\"proposal\":{\"block_parts_header\":{\"hash\":\"%s\",\"total\":%d},\"height\":%d,\"pol_block_id\":{%s},\"pol_round\":%d,\"round\":%d}}"
+#define VOTE_FMT "{\"chain_id\":\"%s\",\"vote\":{\"block_id\":{\"hash\":\"%s\",\"parts\":{\"hash\":\"%s\",\"total\":%d}},\"height\":%lli,\"round\":%d,\"timestamp\":\"%s\",\"type\":%d}}"
+#define PROPOSAL_FMT "{\"chain_id\":\"%s\",\"proposal\":{\"block_parts_header\":{\"hash\":\"%s\",\"total\":%d},\"height\":%lli,\"pol_block_id\":{%s},\"pol_round\":%d,\"round\":%d,\"timestamp\":\"%s\"}}"
 #define POL_BLOCK_ID_FMT "\"hash\":\"%s\",\"parts\":{\"hash\":\"%s\",\"total\":%d}"
 #define HEARTBEAT_FMT "{\"chain_id\":\"%s\",\"heartbeat\":{\"height\":%d,\"round\":%d,\"sequence\":%d,\"validator_address\":\"%s\",\"validator_index\":%d}}"
 
 extern int createCanonicalVote(char *chainId, M_ByteBlock blockIDHash,
-    M_ByteBlock partsHash, M_Word partsTotal, M_Word height, M_Word round,
+    M_ByteBlock partsHash, M_Word partsTotal, long long height, M_Word round, char *timestamp,
     M_Word type, unsigned char **output, M_Word *outputLen) {
 
   int res;
@@ -51,7 +51,7 @@ extern int createCanonicalVote(char *chainId, M_ByteBlock blockIDHash,
   }
 
   res = allocSprintF((char **) output, VOTE_FMT, chainId, blockIdHashStr,
-      partsHashStr, partsTotal, height, round, type);
+      partsHashStr, partsTotal, height, round, timestamp, type);
 
   if (res < 0) {
     goto cleanup;
@@ -68,8 +68,8 @@ extern int createCanonicalVote(char *chainId, M_ByteBlock blockIDHash,
 }
 
 extern int createCanonicalProposal(char *chainID, M_ByteBlock blockPartsHash,
-    M_Word blockPartTotal, M_Word height, M_ByteBlock polBlockIDHash,
-    M_ByteBlock partsHash, M_Word partsTotal, int polRound, M_Word round,
+    M_Word blockPartTotal, long long height, M_ByteBlock polBlockIDHash,
+    M_ByteBlock partsHash, M_Word partsTotal, int polRound, M_Word round, char *timestamp,
     unsigned char **output, M_Word *outputLen) {
 
   int res;
@@ -106,7 +106,8 @@ extern int createCanonicalProposal(char *chainID, M_ByteBlock blockPartsHash,
   }
 
   res = allocSprintF((char**) output, PROPOSAL_FMT, chainID, blockPartsHashStr,
-      blockPartTotal, height, polBlockIDStr, polRound, round);
+      blockPartTotal, height, polBlockIDStr, polRound, round, timestamp);
+
 
   if (res < 0) {
     goto cleanup;
@@ -119,15 +120,16 @@ extern int createCanonicalProposal(char *chainID, M_ByteBlock blockPartsHash,
 
   free(blockPartsHashStr);
   free(polBlockIDHashStr);
+  free(polBlockIDStr);
+
   if (polRound != -1) {
-    free(polBlockIDStr);
-    free(partsHashStr);
+	  free(partsHashStr);
   }
 
   return res;
 }
 
-extern int createCanonicalHeartbeat(char *chainId, M_Word height, M_Word round,
+extern int createCanonicalHeartbeat(char *chainId, long long height, M_Word round,
     M_Word sequence, M_ByteBlock validatorAddress, M_Word validatorIndex,
     unsigned char **output, M_Word *outputLen) {
 

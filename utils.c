@@ -665,3 +665,22 @@ extern int allocSprintF(char **output, const char *fmt, ...) {
 
   return required;
 }
+
+extern int Unmarshal64BitInt(NF_Unmarshal_Context *c, long long *msg) {
+  if (c->remain < 8) {
+    return -1;
+  }
+
+  *msg = (long long)(c->ip[0]);
+  *msg |= (long long)(c->ip[1]) << 8;
+  *msg |= (long long)(c->ip[2]) << 16;
+  *msg |= (long long)(c->ip[3]) << 24;
+  *msg |= (long long)(c->ip[4]) << 32;
+  *msg |= (long long)(c->ip[5]) << 40;
+  *msg |= (long long)(c->ip[6]) << 48;
+  *msg |= (long long)(c->ip[7]) << 56;
+
+  c->ip += 8;
+  c->remain -= 8;
+  return 0;
+}

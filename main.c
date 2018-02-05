@@ -59,7 +59,7 @@ static void handleKeyGen(int fd, const unsigned char *buffer, int bufferLen);
 static void handleSignVote(int fd, const unsigned char *buffer, int bufferLen);
 static void handleProposalVote(int fd, const unsigned char *buffer, int bufferLen);
 static void handleHeartbeat(int fd, const unsigned char *buffer, int bufferLen);
-static int validateAndSignData(unsigned height, unsigned round, unsigned step,
+static int validateAndSignData(long long height, unsigned round, unsigned step,
     const unsigned char *data, unsigned dataLen, unsigned char *sigBuffer);
 
 
@@ -74,7 +74,7 @@ static unsigned char private_key[PRIVATE_KEY_LENGTH];
 // **NOTE: In this example code, this data is only stored in memory and will be reset if the SEE
 // machine is reloaded. A more robust solution would be to use NVRAM to ensure increment-only
 // access to the data.**
-static unsigned lastHeight = 0;
+static long long lastHeight = 0;
 static unsigned lastRound = 0;
 static unsigned lastStep = 0;
 static unsigned char *lastSignedBytes = NULL;
@@ -315,6 +315,7 @@ static void handleKeyLoadJob(int fd, const unsigned char *buffer, int bufferLen)
  cleanup:
 
   ftx.u = userdata;
+  free(ctxPtr);
 
   destroyObject(&wrappingKey);
 
@@ -437,10 +438,11 @@ static void handleSignVote(int fd, const unsigned char *buffer, int bufferLen) {
   NF_Marshal_Context ctx;
   NF_Free_Context ftx;
   struct NF_UserData *userdata = NULL;
-  NFKM_String chainID = NULL;
+  NFKM_String chainID = NULL, timestamp = NULL;
   unsigned char signature[SIGNATURE_SIZE];
   int ctxLen, res;
-  M_Word partsTotal, height, round, type;
+  M_Word partsTotal, round, type;
+  long long height;
   void *ctxPtr = NULL;
   unsigned step;
 
@@ -489,7 +491,7 @@ static void handleSignVote(int fd, const unsigned char *buffer, int bufferLen) {
     goto cleanup;
   }
 
-  rc = NF_Unmarshal_Word(&utx, &height);
+  rc = Unmarshal64BitInt(&utx, &height);
   if (rc != Status_OK) {
     sendNfastErrorResponse(fd, "Could not unmarshal height", rc);
     goto cleanup;
@@ -501,6 +503,12 @@ static void handleSignVote(int fd, const unsigned char *buffer, int bufferLen) {
     goto cleanup;
   }
 
+  rc = NF_Unmarshal_String(&utx, &timestamp);
+  if (rc != Status_OK) {
+    sendNfastErrorResponse(fd, "Could not unmarshal timestamp", rc);
+    goto cleanup;
+  }
+
   rc = NF_Unmarshal_Word(&utx, &type);
   if (rc != Status_OK) {
     sendNfastErrorResponse(fd, "Could not unmarshal type", rc);
@@ -508,7 +516,7 @@ static void handleSignVote(int fd, const unsigned char *buffer, int bufferLen) {
   }
 
 
-  res = createCanonicalVote(chainID, blockIdHash, partsHash, partsTotal, height, round, type,
+  res = createCanonicalVote(chainID, blockIdHash, partsHash, partsTotal, height, round, timestamp, type,
       &canonicalVote.ptr, &canonicalVote.len);
   if (res != 0) {
     sendErrorResponse(fd, "Failed to create canonical vote");
@@ -589,6 +597,7 @@ static void handleSignVote(int fd, const unsigned char *buffer, int bufferLen) {
   free(ctxPtr);
 
   NF_Free_String(&ftx, &chainID);
+  NF_Free_String(&ftx, &timestamp);
   NF_Free_ByteBlock(&ftx, &blockIdHash);
   NF_Free_ByteBlock(&ftx, &partsHash);
   NF_Free_ByteBlock(&ftx, &canonicalVote);
@@ -606,10 +615,11 @@ static void handleProposalVote(int fd, const unsigned char *buffer, int bufferLe
   NF_Marshal_Context ctx;
   NF_Free_Context ftx;
   struct NF_UserData *userdata = NULL;
-  NFKM_String chainID = NULL;
+  NFKM_String chainID = NULL, timestamp = NULL;
   unsigned char signature[SIGNATURE_SIZE];
   int ctxLen, res;
-  M_Word blockPartTotal, height, partsTotal, polRound, round;
+  M_Word blockPartTotal, partsTotal, polRound, round;
+  long long height;
   void *ctxPtr = NULL;
 
   printf("handleProposalVote\n");
@@ -652,7 +662,7 @@ static void handleProposalVote(int fd, const unsigned char *buffer, int bufferLe
     goto cleanup;
   }
 
-  rc = NF_Unmarshal_Word(&utx, &height);
+  rc = Unmarshal64BitInt(&utx, &height);
   if (rc != Status_OK) {
     sendNfastErrorResponse(fd, "Could not unmarshal height", rc);
     goto cleanup;
@@ -689,10 +699,14 @@ static void handleProposalVote(int fd, const unsigned char *buffer, int bufferLe
     goto cleanup;
   }
 
-
+  rc = NF_Unmarshal_String(&utx, &timestamp);
+  if (rc != Status_OK) {
+    sendNfastErrorResponse(fd, "Could not unmarshal timestamp", rc);
+    goto cleanup;
+  }
 
   res = createCanonicalProposal(chainID, blockPartsHash, blockPartTotal, height,
-      polBlockIDHash, partsHash, partsTotal, (int) polRound, round,
+      polBlockIDHash, partsHash, partsTotal, (int) polRound, round, timestamp,
       &canonicalProposal.ptr, &canonicalProposal.len);
   if (res != 0) {
     sendErrorResponse(fd, "Could not create canonical proposal");
@@ -758,6 +772,7 @@ static void handleProposalVote(int fd, const unsigned char *buffer, int bufferLe
   free(ctxPtr);
 
   NF_Free_String(&ftx, &chainID);
+  NF_Free_String(&ftx, &timestamp);
   NF_Free_ByteBlock(&ftx, &blockPartsHash);
   NF_Free_ByteBlock(&ftx, &polBlockIDHash);
   NF_Free_ByteBlock(&ftx, &partsHash);
@@ -779,7 +794,8 @@ static void handleHeartbeat(int fd, const unsigned char *buffer, int bufferLen) 
   NFKM_String chainID = NULL;
   unsigned char signature[SIGNATURE_SIZE];
   int ctxLen;
-  M_Word height, round, sequence, validatorIndex;
+  M_Word round, sequence, validatorIndex;
+  long long height;
   void *ctxPtr = NULL;
 
   printf("handleProposalVote\n");
@@ -811,7 +827,7 @@ static void handleHeartbeat(int fd, const unsigned char *buffer, int bufferLen) 
     goto cleanup;
   }
 
-  rc = NF_Unmarshal_Word(&utx, &height);
+  rc = Unmarshal64BitInt(&utx, &height);
   if (rc != Status_OK) {
     sendNfastErrorResponse(fd, "Could not unmarshal height", rc);
     goto cleanup;
@@ -904,7 +920,7 @@ static void handleHeartbeat(int fd, const unsigned char *buffer, int bufferLen) 
 }
 
 // Sig buffer should be 64 bytes, allocated by caller
-static int validateAndSignData(unsigned height, unsigned round, unsigned step,
+static int validateAndSignData(long long height, unsigned round, unsigned step,
     const unsigned char *data, unsigned dataLen, unsigned char *sigBuffer) {
 
   // Logic here is taken from Tendermint's PrivValidatorFS.signBytesHRS()

@@ -25,15 +25,15 @@
 #include <nfkm.h>
 
 extern int createCanonicalVote(char *chainId, M_ByteBlock blockIDHash,
-    M_ByteBlock partsHash, M_Word partsTotal, M_Word height, M_Word round,
+    M_ByteBlock partsHash, M_Word partsTotal, long long height, M_Word round, char *timestamp,
     M_Word type, unsigned char **output, M_Word *outputLen);
 
 extern int createCanonicalProposal(char *chainID, M_ByteBlock blockPartsHash,
-    M_Word blockPartTotal, M_Word height, M_ByteBlock polBlockIDHash,
-    M_ByteBlock partsHash, M_Word partsTotal, int polRound, M_Word round,
+    M_Word blockPartTotal, long long height, M_ByteBlock polBlockIDHash,
+    M_ByteBlock partsHash, M_Word partsTotal, int polRound, M_Word round, char *timestamp,
     unsigned char **output, M_Word *outputLen);
 
-extern int createCanonicalHeartbeat(char *chainId, M_Word height, M_Word round,
+extern int createCanonicalHeartbeat(char *chainId, long long height, M_Word round,
     M_Word sequence, M_ByteBlock validatorAddress, M_Word validatorIndex,
     unsigned char **output, M_Word *outputLen);
 
